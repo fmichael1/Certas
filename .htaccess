@@ -1,0 +1,9 @@
+# Direct traffic for /Certas to the Flask app
+WSGIScriptAlias /Certas /home/kpjotomy/public_html/Certas/wsgi.py
+
+<Directory /home/kpjotomy/public_html/Certas>
+    Require all granted
+</Directory>
+
+WSGIDaemonProcess certas threads=5
+WSGIProcessGroup certas
