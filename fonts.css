@@ -1,0 +1,83 @@
+@font-face {
+    font-family: 'Karmina Sans';
+    src: url('/Certas/fnts/Karmina_Sans.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Karmina Sans';
+    src: url('/Certas/fnts/Karmina_Sans_Italic.otf') format('opentype');
+    font-weight: normal;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Karmina Sans';
+    src: url('/Certas/fnts/Karmina_Sans_Bold.otf') format('opentype');
+    font-weight: bold;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Karmina Sans';
+    src: url('/Certas/fnts/Karmina_Sans_Bold_Italic.otf') format('opentype');
+    font-weight: bold;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Karmina Sans';
+    src: url('/Certas/fnts/Karmina_Sans_Light.otf') format('opentype');
+    font-weight: 300;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Karmina Sans';
+    src: url('/Certas/fnts/Karmina_Sans_Light_Italic.otf') format('opentype');
+    font-weight: 300;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Karmina Sans';
+    src: url('/Certas/fnts/Karmina_Sans_SemiBold.otf') format('opentype');
+    font-weight: 600;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Karmina Sans';
+    src: url('/Certas/fnts/Karmina_Sans_SemiBold_Italic.otf') format('opentype');
+    font-weight: 600;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Karmina Sans';
+    src: url('/Certas/fnts/Karmina_Sans_ExtraBold.otf') format('opentype');
+    font-weight: 800;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Karmina Sans';
+    src: url('/Certas/fnts/Karmina_Sans_ExtraBold_Italic.otf') format('opentype');
+    font-weight: 800;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Karmina Sans';
+    src: url('/Certas/fnts/Karmina_Sans_Heavy.otf') format('opentype');
+    font-weight: 900;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Karmina Sans';
+    src: url('/Certas/fnts/Karmina_Sans_Heavy_Italic.otf') format('opentype');
+    font-weight: 900;
+    font-style: italic;
+}

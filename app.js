@@ -7,7 +7,7 @@ const pointLabels = [
     'Setting indicator bar',
     'Setting indicator T bar'
 ];
-const LAST_UPDATED = new Date().toLocaleString();
+const LAST_UPDATED = "2023-11-09 23:10:00";
 
 // You can use these longer descriptions for tooltips or more detailed instructions if needed
 const pointDescriptions = [
@@ -21,11 +21,148 @@ const pointDescriptions = [
 let currentPointIndex = 0;
 let isGrabbing = false;
 
+document.addEventListener('DOMContentLoaded', initializeApp);
+
 function initializeApp() {
     initializeCanvas();
     addEventListeners();
     initializeControls();
+    initializePdfLinks();
     displayDebugInfo();
+}
+
+function addEventListeners() {
+    const uploadBtn = document.getElementById('uploadBtn');
+    const imageUpload = document.getElementById('imageUpload');
+    const resetBtn = document.getElementById('resetBtn');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const rotationSlider = document.getElementById('rotationSlider');
+    const flipHorizontalBtn = document.getElementById('flipHorizontalBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const uploadArea = document.getElementById('uploadArea');
+
+    if (uploadBtn) uploadBtn.addEventListener('click', triggerFileUpload);
+    if (imageUpload) imageUpload.addEventListener('change', handleImageUpload);
+    if (resetBtn) resetBtn.addEventListener('click', resetMarkings);
+    if (analyzeBtn) analyzeBtn.addEventListener('click', analyzeImage);
+    if (rotationSlider) rotationSlider.addEventListener('input', handleRotationSlider);
+    if (flipHorizontalBtn) flipHorizontalBtn.addEventListener('click', flipHorizontal);
+    if (downloadBtn) downloadBtn.addEventListener('click', downloadAnalysis);
+    
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    
+    initializePdfLinks();
+
+    // Initialize upload area
+    if (uploadArea) {
+        initializeUploadArea(uploadArea, imageUpload);
+    } else {
+        console.error('Upload area not found');
+    }
+}
+
+let isFileInputClicked = false;
+
+function initializeUploadArea(uploadArea, imageUpload) {
+    // Click to open file selection
+    uploadArea.addEventListener('click', (e) => {
+        console.log('Upload area clicked');
+        e.preventDefault();
+        e.stopPropagation();
+        if (!isFileInputClicked) {
+            triggerFileUpload();
+        }
+    });
+
+    // Prevent click on the file input from bubbling up to the upload area
+    imageUpload.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    imageUpload.addEventListener('change', (e) => {
+        console.log('File selected');
+        isFileInputClicked = false;
+        if (e.target.files.length) {
+            handleImageUpload(e.target.files[0]);
+        }
+    });
+
+    // Reset flag when file dialog is closed
+    window.addEventListener('focus', () => {
+        setTimeout(() => {
+            isFileInputClicked = false;
+        }, 300);
+    });
+
+    // Prevent default behavior for drag events
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // Handle drag enter and leave visual feedback
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight() {
+        uploadArea.classList.add('dragover');
+    }
+
+    function unhighlight() {
+        uploadArea.classList.remove('dragover');
+    }
+
+    // Handle dropped files
+    uploadArea.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length) {
+            handleImageUpload(files[0]);
+        }
+    }
+
+    // Add event listener for Ctrl+V or Command+V
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+            e.preventDefault();
+            navigator.clipboard.read().then(clipboardItems => {
+                for (const clipboardItem of clipboardItems) {
+                    for (const type of clipboardItem.types) {
+                        if (type.startsWith('image/')) {
+                            clipboardItem.getType(type).then(blob => {
+                                handleImageUpload(blob);
+                            });
+                        }
+                    }
+                }
+            });
+        }
+    });
+
+    console.log('Upload area initialized');
+}
+
+function triggerFileUpload() {
+    const imageUpload = document.getElementById('imageUpload');
+    if (imageUpload) {
+        console.log('Triggering file upload');
+        isFileInputClicked = true;
+        imageUpload.click();
+    } else {
+        console.error('Image upload input not found');
+    }
 }
 
 function initializeCanvas() {
@@ -54,22 +191,25 @@ function initializeCanvas() {
     canvas.on('mouse:wheel', handleCanvasMouseWheel);
 }
 
-function addEventListeners() {
-    document.getElementById('uploadBtn').addEventListener('click', triggerFileUpload);
-    document.getElementById('imageUpload').addEventListener('change', handleImageUpload);
-    document.getElementById('resetBtn').addEventListener('click', resetMarkings);
-    document.getElementById('analyzeBtn').addEventListener('click', analyzeImage);
-    document.getElementById('rotationSlider').addEventListener('input', handleRotationSlider);
-    document.getElementById('flipHorizontalBtn').addEventListener('click', flipHorizontal);
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
-}
-
 function initializeControls() {
     const rotationSlider = document.getElementById('rotationSlider');
     rotationSlider.min = -180;
     rotationSlider.max = 180;
     rotationSlider.value = 0;
+}
+
+function initializePdfLinks() {
+    const pdfLinks = document.querySelectorAll('.dropdown-item[data-pdf]');
+    pdfLinks.forEach(link => {
+        link.addEventListener('click', openPdfGuide);
+    });
+}
+
+function openPdfGuide(event) {
+    event.preventDefault();
+    const pdfFile = event.target.getAttribute('data-pdf');
+    const pdfUrl = `pdf/${pdfFile}`; // Update this path to where your PDFs are stored
+    window.open(pdfUrl, '_blank');
 }
 
 function handleCanvasMouseDown(event) {
@@ -150,25 +290,27 @@ function removeLastPoint() {
         const lastPoint = points.pop();
         canvas.remove(lastPoint.circle);
         canvas.remove(lastPoint.text);
+        if (lastPoint.arrowhead) {
+            canvas.remove(lastPoint.arrowhead);
+        }
         currentPointIndex--;
         updateInstructions(`Mark the ${pointLabels[currentPointIndex]}.`);
         canvas.renderAll();
     }
 }
 
-function triggerFileUpload() {
-    document.getElementById('imageUpload').click();
-}
-
-function handleImageUpload(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            loadImageToCanvas(e.target.result);
-        };
-        reader.readAsDataURL(file);
+function handleImageUpload(file) {
+    console.log('File selected:', file);
+    // Your existing image upload logic here
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+            loadImageToCanvas(event.target.result);
+        }
+        img.src = event.target.result;
     }
+    reader.readAsDataURL(file);
 }
 
 function loadImageToCanvas(imageData) {
@@ -238,6 +380,7 @@ function addPoint(x, y, label) {
 
     canvas.add(circle, text);
     points.push({ circle, text });
+    
     canvas.renderAll();
 }
 
@@ -250,6 +393,9 @@ function rotateCanvas(angle) {
         points.forEach(point => {
             rotatePoint(point.circle, angle);
             rotatePoint(point.text, angle);
+            if (point.arrowhead) {
+                rotatePoint(point.arrowhead, angle);
+            }
         });
 
         canvas.renderAll();
@@ -267,6 +413,9 @@ function rotatePoint(obj, angle) {
         left: center.left + newDx,
         top: center.top + newDy
     });
+    if (obj instanceof fabric.Triangle) {
+        obj.rotate(angle);
+    }
     obj.setCoords();
 }
 
@@ -274,6 +423,9 @@ function resetMarkings() {
     points.forEach(point => {
         canvas.remove(point.circle);
         canvas.remove(point.text);
+        if (point.arrowhead) {
+            canvas.remove(point.arrowhead);
+        }
     });
     points = [];
     currentPointIndex = 0;
@@ -300,6 +452,9 @@ function updateInstructions(text) {
         descriptionElement.textContent = pointDescriptions[currentPointIndex];
         instructionsElement.appendChild(descriptionElement);
     }
+
+    // Enable or disable the download button based on whether analysis has been performed
+    document.getElementById('downloadBtn').disabled = !text.includes('Analysis complete') && !text.includes('Image inconclusive');
 }
 
 function analyzeImage() {
@@ -331,21 +486,69 @@ function analyzeImage() {
     };
 
     // Calculate the angle between the setting vector and the valve axis
-    let angle = Math.atan2(settingVector.y, settingVector.x) - Math.atan2(valveAxis.y, valveAxis.x);
+    let angle = Math.atan2(settingVector.y, settingVector.x) - Math.atan2(-valveAxis.y, -valveAxis.x);
     angle = angle * (180 / Math.PI); // Convert to degrees
 
-    // Adjust the angle so that the top vertical point of the valve axis is 0 degrees
-    angle = (angle - 90 + 360) % 360;
+    angle = (angle + 360) % 360;
 
     // Determine the valve setting based on the angle
     const setting = determineValveSetting(angle);
 
     // Display the result
-    updateInstructions(`Analysis complete. Angle: ${angle.toFixed(2)}°, Estimated Setting: ${setting}`);
-    console.log(`Angle: ${angle.toFixed(2)}°, Estimated Setting: ${setting}`);
+    let resultMessage;
+    if (setting === "Unknown") {
+        const nearestSettings = findNearestSettings(angle);
+        resultMessage = `Image inconclusive - estimated setting is between ${nearestSettings[0]} and ${nearestSettings[1]}. Please repeat the X-ray.`;
+    } else {
+        resultMessage = `Analysis complete. Angle: ${angle.toFixed(2)}°, Estimated Setting: ${setting}`;
+    }
+
+    updateInstructions(resultMessage);
+    console.log(resultMessage);
 
     // Draw the valve axis and setting vector for visualization
     drawAnalysisLines(proximalConnector, distalConnector, circularIndicator, tIndicator);
+
+    // Enable the download button after analysis
+    document.getElementById('downloadBtn').disabled = false;
+}
+
+function findNearestSettings(angle) {
+    const settings = [
+        { min: 350, max: 26, value: 6 },
+        { min: 33, max: 70, value: 7 },
+        { min: 77, max: 115, value: 8 },
+        { min: 123, max: 156, value: 1 },
+        { min: 171, max: 205, value: 2 },
+        { min: 212, max: 249, value: 3 },
+        { min: 257, max: 295, value: 4 },
+        { min: 302, max: 337, value: 5 }
+    ];
+
+    let lowerSetting = 0;
+    let upperSetting = 0;
+
+    for (let i = 0; i < settings.length; i++) {
+        const currentSetting = settings[i];
+        const nextSetting = settings[(i + 1) % settings.length];
+
+        if (currentSetting.min <= currentSetting.max) {
+            if (angle > currentSetting.max && angle < nextSetting.min) {
+                lowerSetting = currentSetting.value;
+                upperSetting = nextSetting.value;
+                break;
+            }
+        } else {
+            // Handle the case where the range crosses 0 degrees (setting 6)
+            if ((angle > currentSetting.min && angle <= 360) || (angle >= 0 && angle < nextSetting.min)) {
+                lowerSetting = currentSetting.value;
+                upperSetting = nextSetting.value;
+                break;
+            }
+        }
+    }
+
+    return [lowerSetting, upperSetting];
 }
 
 function drawAnalysisLines(proximalConnector, distalConnector, circularIndicator, tIndicator) {
@@ -371,7 +574,38 @@ function drawAnalysisLines(proximalConnector, distalConnector, circularIndicator
         evented: false
     });
 
-    canvas.add(axisLine, settingLine);
+    // Calculate arrowhead points
+    const angle = Math.atan2(tIndicator.top - circularIndicator.top, tIndicator.left - circularIndicator.left);
+    const arrowLength = 15;
+    const arrowAngle = Math.PI / 6; // 30 degrees
+
+    const arrowPoint1 = {
+        x: tIndicator.left - arrowLength * Math.cos(angle - arrowAngle),
+        y: tIndicator.top - arrowLength * Math.sin(angle - arrowAngle)
+    };
+
+    const arrowPoint2 = {
+        x: tIndicator.left - arrowLength * Math.cos(angle + arrowAngle),
+        y: tIndicator.top - arrowLength * Math.sin(angle + arrowAngle)
+    };
+
+    // Create arrowhead
+    const arrowhead = new fabric.Triangle({
+        left: tIndicator.left,
+        top: tIndicator.top,
+        points: [
+            { x: 0, y: 0 },
+            { x: arrowPoint1.x - tIndicator.left, y: arrowPoint1.y - tIndicator.top },
+            { x: arrowPoint2.x - tIndicator.left, y: arrowPoint2.y - tIndicator.top }
+        ],
+        fill: 'green',
+        selectable: false,
+        evented: false,
+        angle: (angle * 180 / Math.PI) + 90
+    });
+
+    // Add all elements to canvas
+    canvas.add(axisLine, settingLine, arrowhead);
     canvas.renderAll();
 }
 
@@ -414,9 +648,32 @@ function displayDebugInfo() {
     debugElement.style.right = '5px';
     debugElement.style.fontSize = '10px';
     debugElement.style.color = '#888';
-    debugElement.textContent = `Last updated: ${LAST_UPDATED}`;
+    
+    const lastUpdated = new Date(LAST_UPDATED);
+    debugElement.textContent = `Last updated: ${lastUpdated.toLocaleString()}`;
+    
     document.body.appendChild(debugElement);
 }
 
-// Make sure this line is at the end of your file
-document.addEventListener('DOMContentLoaded', initializeApp);
+function downloadAnalysis() {
+    // Create a new canvas that includes the entire app view
+    const appView = document.querySelector('.container-fluid');
+    html2canvas(appView).then(canvas => {
+        // Add the result message to the canvas
+        const ctx = canvas.getContext('2d');
+        ctx.font = '14px Arial';
+        ctx.fillStyle = 'black';
+        ctx.fillText(document.getElementById('instructions').textContent, 10, canvas.height - 20);
+
+        // Convert the canvas to a data URL
+        const dataURL = canvas.toDataURL('image/png');
+
+        // Create a temporary link element and trigger the download
+        const downloadLink = document.createElement('a');
+        downloadLink.href = dataURL;
+        downloadLink.download = 'certas_vps_valve_analysis.png';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    });
+}
