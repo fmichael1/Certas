@@ -7,7 +7,7 @@ const pointLabels = [
     'Setting indicator bar',
     'Setting indicator T bar'
 ];
-const LAST_UPDATED = "2023-11-09 23:10:00";
+const LAST_UPDATED = "2023-12-09 00:33:00";
 
 // You can use these longer descriptions for tooltips or more detailed instructions if needed
 const pointDescriptions = [
@@ -48,10 +48,10 @@ function addEventListeners() {
     if (rotationSlider) rotationSlider.addEventListener('input', handleRotationSlider);
     if (flipHorizontalBtn) flipHorizontalBtn.addEventListener('click', flipHorizontal);
     if (downloadBtn) downloadBtn.addEventListener('click', downloadAnalysis);
-    
+
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
-    
+
     initializePdfLinks();
 
     // Initialize upload area
@@ -168,14 +168,14 @@ function triggerFileUpload() {
 function initializeCanvas() {
     const canvasContainer = document.querySelector('.canvas-container');
     const canvasElement = document.getElementById('imageCanvas');
-    
+
     if (!canvasContainer || !canvasElement) {
         console.error('Canvas container or canvas element not found');
         return;
     }
 
     const size = Math.min(canvasContainer.offsetWidth, window.innerHeight * 0.8);
-    
+
     canvasElement.width = size;
     canvasElement.height = size;
 
@@ -303,9 +303,9 @@ function handleImageUpload(file) {
     console.log('File selected:', file);
     // Your existing image upload logic here
     const reader = new FileReader();
-    reader.onload = function(event) {
+    reader.onload = function (event) {
         const img = new Image();
-        img.onload = function() {
+        img.onload = function () {
             loadImageToCanvas(event.target.result);
         }
         img.src = event.target.result;
@@ -314,7 +314,7 @@ function handleImageUpload(file) {
 }
 
 function loadImageToCanvas(imageData) {
-    fabric.Image.fromURL(imageData, function(img) {
+    fabric.Image.fromURL(imageData, function (img) {
         canvas.clear();
         fitImageToCanvas(img);
         canvas.renderAll();
@@ -344,9 +344,9 @@ function handleCanvasClick(event) {
 
     const pointer = canvas.getPointer(event.e);
     addPoint(pointer.x, pointer.y, pointLabels[currentPointIndex]);
-    
+
     currentPointIndex++;
-    
+
     if (currentPointIndex === pointLabels.length) {
         updateInstructions('All points marked. Click "Analyze" to process the image.');
         document.getElementById('analyzeBtn').disabled = false;
@@ -380,7 +380,7 @@ function addPoint(x, y, label) {
 
     canvas.add(circle, text);
     points.push({ circle, text });
-    
+
     canvas.renderAll();
 }
 
@@ -420,22 +420,30 @@ function rotatePoint(obj, angle) {
 }
 
 function resetMarkings() {
+    console.log('Resetting markings...');
+    console.log('Points before reset:', points.length);
+    console.log('Canvas objects before reset:', canvas.getObjects().length);
+
     points.forEach(point => {
         canvas.remove(point.circle);
         canvas.remove(point.text);
         if (point.arrowhead) {
+            console.log('Removing point arrowhead');
             canvas.remove(point.arrowhead);
         }
     });
     points = [];
     currentPointIndex = 0;
 
-    // Remove analysis lines
+    // Remove analysis lines and arrowhead
     canvas.getObjects().forEach(obj => {
-        if (obj instanceof fabric.Line) {
+        if (obj instanceof fabric.Line || obj.isArrowhead) {
+            console.log('Removing object:', obj.type, obj.isArrowhead);
             canvas.remove(obj);
         }
     });
+
+    console.log('Canvas objects after reset:', canvas.getObjects().length);
 
     updateInstructions('Mark the proximal end of the valve.');
     document.getElementById('analyzeBtn').disabled = true;
@@ -445,7 +453,7 @@ function resetMarkings() {
 function updateInstructions(text) {
     const instructionsElement = document.getElementById('instructions');
     instructionsElement.textContent = text;
-    
+
     // If you want to use the longer descriptions, you can add them here
     if (currentPointIndex < pointLabels.length) {
         const descriptionElement = document.createElement('p');
@@ -576,32 +584,23 @@ function drawAnalysisLines(proximalConnector, distalConnector, circularIndicator
 
     // Calculate arrowhead points
     const angle = Math.atan2(tIndicator.top - circularIndicator.top, tIndicator.left - circularIndicator.left);
-    const arrowLength = 15;
+    const arrowLength = 10; // Reduced from 15 to make it smaller
     const arrowAngle = Math.PI / 6; // 30 degrees
-
-    const arrowPoint1 = {
-        x: tIndicator.left - arrowLength * Math.cos(angle - arrowAngle),
-        y: tIndicator.top - arrowLength * Math.sin(angle - arrowAngle)
-    };
-
-    const arrowPoint2 = {
-        x: tIndicator.left - arrowLength * Math.cos(angle + arrowAngle),
-        y: tIndicator.top - arrowLength * Math.sin(angle + arrowAngle)
-    };
 
     // Create arrowhead
     const arrowhead = new fabric.Triangle({
         left: tIndicator.left,
         top: tIndicator.top,
-        points: [
-            { x: 0, y: 0 },
-            { x: arrowPoint1.x - tIndicator.left, y: arrowPoint1.y - tIndicator.top },
-            { x: arrowPoint2.x - tIndicator.left, y: arrowPoint2.y - tIndicator.top }
-        ],
+        pointType: 'arrow_start',
+        angle: (angle * 180 / Math.PI) + 90,
+        width: arrowLength * 2,
+        height: arrowLength * 2,
         fill: 'green',
         selectable: false,
         evented: false,
-        angle: (angle * 180 / Math.PI) + 90
+        originX: 'center',
+        originY: 'center',
+        isArrowhead: true  // Add this custom property
     });
 
     // Add all elements to canvas
@@ -648,10 +647,10 @@ function displayDebugInfo() {
     debugElement.style.right = '5px';
     debugElement.style.fontSize = '10px';
     debugElement.style.color = '#888';
-    
+
     const lastUpdated = new Date(LAST_UPDATED);
     debugElement.textContent = `Last updated: ${lastUpdated.toLocaleString()}`;
-    
+
     document.body.appendChild(debugElement);
 }
 
