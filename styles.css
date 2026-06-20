@@ -1,133 +1,9 @@
-body {
-    font-family: 'Karmina Sans', Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    height: 100vh;
-    overflow: hidden;
-}
-
-.container-fluid {
-    height: 100%;
-    padding: 0;
-    min-height: 100vh;
-    padding-bottom: 20px;
-    /* Add some padding at the bottom for the result text */
-}
-
-.row {
-    height: 100%;
-    margin: 0;
-}
-
-.sidebar {
-    background-color: #f8f9fa;
-    padding: 20px;
-    height: 100vh;
-    overflow-y: auto;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-}
-
-.main-content {
-    padding: 20px;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: #e9ecef;
-}
-
-.canvas-container {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-#imageCanvas {
-    border: 1px solid #ccc;
-    max-width: 100%;
-    max-height: 100%;
-}
-
-.btn {
-    width: 100%;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.btn i {
-    margin-right: 5px;
-}
-
-#instructions {
-    margin-bottom: 20px;
-}
-
-h2 {
-    margin-bottom: 20px;
-    color: #333;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .sidebar {
-        height: auto;
-        max-height: 50vh;
-    }
-
-    .main-content {
-        height: 50vh;
-    }
-}
-
-/* Improve slider appearance */
-input[type="range"] {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 10px;
-    border-radius: 5px;
-    background: #d3d3d3;
-    outline: none;
-    opacity: 0.7;
-    transition: opacity .2s;
-}
-
-input[type="range"]:hover {
-    opacity: 1;
-}
-
-input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #007bff;
-    cursor: pointer;
-}
-
-input[type="range"]::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #007bff;
-    cursor: pointer;
-}
-
-.dropdown-menu {
-    width: 100%;
-}
-
-.dropdown-item {
-    white-space: normal;
-    word-wrap: break-word;
-}
+/* ============================================================
+   The Certas app's own styles live in a single block at the END of
+   this file (after the bundled Bootstrap rules below). A duplicate
+   partial copy that previously sat here has been removed; its four
+   unique declarations were merged into that end block.
+   ============================================================ */
 
 .caret {
     display: inline-block;
@@ -2564,6 +2440,8 @@ body {
 }
 
 .container-fluid {
+    height: 100%;
+    padding: 0;
     min-height: 100vh;
     padding-bottom: 20px;
     /* Add some padding at the bottom for the result text */
@@ -2626,6 +2504,7 @@ body {
 
 h2 {
     margin-bottom: 20px;
+    color: #333;
 }
 
 /* Responsive adjustments */
@@ -2674,6 +2553,15 @@ input[type="range"]::-moz-range-thumb {
     cursor: pointer;
 }
 
+.dropdown-menu {
+    width: 100%;
+}
+
+.dropdown-item {
+    white-space: normal;
+    word-wrap: break-word;
+}
+
 .upload-area {
     border: 2px dashed #ccc;
     border-radius: 5px;
@@ -2705,7 +2593,13 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .hidden-input {
-    display: none;
+    /* Visually hidden but still RENDERED, so mobile browsers reliably open the
+       picker when the associated <label> is tapped (display:none can block this). */
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
 }
 
 .sr-only {

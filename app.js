@@ -7,7 +7,7 @@ const pointLabels = [
     'Setting indicator bar',
     'Setting indicator T bar'
 ];
-const LAST_UPDATED = "2023-12-09 00:33:00";
+const LAST_UPDATED = "2026-06-20 00:00:00";
 
 // You can use these longer descriptions for tooltips or more detailed instructions if needed
 const pointDescriptions = [
@@ -42,7 +42,9 @@ function addEventListeners() {
     const uploadArea = document.getElementById('uploadArea');
 
     if (uploadBtn) uploadBtn.addEventListener('click', triggerFileUpload);
-    if (imageUpload) imageUpload.addEventListener('change', handleImageUpload);
+    // NOTE: the file-input 'change' handler is registered in initializeUploadArea()
+    // with the selected File. A second registration here previously passed the Event
+    // object into handleImageUpload() and threw on every upload — removed.
     if (resetBtn) resetBtn.addEventListener('click', resetMarkings);
     if (analyzeBtn) analyzeBtn.addEventListener('click', analyzeImage);
     if (rotationSlider) rotationSlider.addEventListener('input', handleRotationSlider);
@@ -213,6 +215,9 @@ function openPdfGuide(event) {
 }
 
 function handleCanvasMouseDown(event) {
+    // Touch is handled separately by mobile.js (loupe placement / pinch-zoom).
+    // Fabric maps touch -> mouse:down, so ignore touch-origin events here to avoid double-placing.
+    if (event.e && typeof event.e.type === 'string' && event.e.type.indexOf('touch') === 0) return;
     if (event.e.shiftKey) {
         isGrabbing = true;
         canvas.selection = false;
@@ -295,32 +300,80 @@ function removeLastPoint() {
         }
         currentPointIndex--;
         updateInstructions(`Mark the ${pointLabels[currentPointIndex]}.`);
+        notifyPointsChanged();
         canvas.renderAll();
     }
 }
 
 function handleImageUpload(file) {
+    if (!file || !(file instanceof Blob)) return;   // ignore bad callers (e.g. an Event)
     console.log('File selected:', file);
-    // Your existing image upload logic here
+
     const reader = new FileReader();
+    reader.onerror = function () {
+        handleImageError('Could not read that file. Please try another image.');
+    };
     reader.onload = function (event) {
         const img = new Image();
         img.onload = function () {
-            loadImageToCanvas(event.target.result);
-        }
+            // Downscale very large camera photos before handing them to fabric (keeps
+            // memory/perf sane on phones); decoding here also normalises EXIF orientation.
+            loadImageToCanvas(downscaleIfLarge(img, event.target.result));
+        };
+        img.onerror = function () {
+            handleImageError("Couldn't read that photo. iPhone HEIC photos aren't supported by this browser — set Camera → Formats → “Most Compatible”, or upload a JPEG/PNG.");
+        };
         img.src = event.target.result;
+    };
+    try {
+        reader.readAsDataURL(file);
+    } catch (e) {
+        handleImageError('That file type is not supported. Please upload a JPEG or PNG.');
     }
-    reader.readAsDataURL(file);
+}
+
+// Decode-validated image -> if larger than MAX on its longest side, redraw smaller.
+// Returns a data URL (downscaled JPEG when applicable, otherwise the original).
+function downscaleIfLarge(img, originalUrl) {
+    const MAX = 2200;
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h || Math.max(w, h) <= MAX) return originalUrl;
+    const scale = MAX / Math.max(w, h);
+    const off = document.createElement('canvas');
+    off.width = Math.round(w * scale);
+    off.height = Math.round(h * scale);
+    try {
+        off.getContext('2d').drawImage(img, 0, 0, off.width, off.height);
+        return off.toDataURL('image/jpeg', 0.92);
+    } catch (e) {
+        return originalUrl;   // edge case (e.g. tainted canvas) — fall back to original
+    }
+}
+
+// Surface an image-load failure instead of silently hanging on the upload step.
+function handleImageError(message) {
+    console.error('Image load failed:', message);
+    const instructions = document.getElementById('instructions');
+    if (instructions) instructions.textContent = message;
+    const input = document.getElementById('imageUpload');
+    if (input) input.value = '';   // allow re-selecting the same file
+    document.dispatchEvent(new CustomEvent('image:error', { detail: { message: message } }));
 }
 
 function loadImageToCanvas(imageData) {
     fabric.Image.fromURL(imageData, function (img) {
+        if (!img || !img.getElement || !img.getElement()) {
+            handleImageError('Could not display that image. Please try another file.');
+            return;
+        }
         canvas.clear();
         fitImageToCanvas(img);
         canvas.renderAll();
         resetMarkings();
         updateInstructions('Mark the proximal end of the valve.');
         document.getElementById('resetBtn').disabled = false;
+        document.dispatchEvent(new CustomEvent('image:loaded'));
     }, { crossOrigin: 'anonymous' });
 }
 
@@ -340,10 +393,15 @@ function fitImageToCanvas(img) {
 }
 
 function handleCanvasClick(event) {
+    const pointer = canvas.getPointer(event.e);
+    placePoint(pointer.x, pointer.y);
+}
+
+// Shared point-placement path used by both mouse clicks (desktop) and touch (mobile loupe).
+function placePoint(x, y) {
     if (currentPointIndex >= pointLabels.length) return;
 
-    const pointer = canvas.getPointer(event.e);
-    addPoint(pointer.x, pointer.y, pointLabels[currentPointIndex]);
+    addPoint(x, y, pointLabels[currentPointIndex]);
 
     currentPointIndex++;
 
@@ -353,6 +411,15 @@ function handleCanvasClick(event) {
     } else {
         updateInstructions(`Mark the ${pointLabels[currentPointIndex]}.`);
     }
+
+    notifyPointsChanged();
+}
+
+// Lets the mobile UI react to marking progress without app.js needing to know it exists.
+function notifyPointsChanged() {
+    document.dispatchEvent(new CustomEvent('points:changed', {
+        detail: { count: points.length, index: currentPointIndex, total: pointLabels.length }
+    }));
 }
 
 function addPoint(x, y, label) {
@@ -447,6 +514,7 @@ function resetMarkings() {
 
     updateInstructions('Mark the proximal end of the valve.');
     document.getElementById('analyzeBtn').disabled = true;
+    notifyPointsChanged();
     canvas.renderAll();
 }
 
@@ -519,6 +587,8 @@ function analyzeImage() {
 
     // Enable the download button after analysis
     document.getElementById('downloadBtn').disabled = false;
+
+    document.dispatchEvent(new CustomEvent('analysis:complete', { detail: { message: resultMessage } }));
 }
 
 function findNearestSettings(angle) {

@@ -6,9 +6,10 @@
     <title>Certas VPS Valve X-ray Analyzer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=20260620b">
     <link rel="stylesheet" href="icons.css">
     <link rel="stylesheet" href="fonts.css">
+    <link rel="stylesheet" href="mobile.css?v=20260620b">
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <style>
         .header {
@@ -68,7 +69,11 @@
     </style>
 </head>
 <body>
-    
+    <!-- File input at body level so it's ALWAYS rendered. A display:none ancestor
+         (the sidebar is hidden on mobile) can stop mobile browsers from opening the
+         picker, which made uploads silently do nothing on phones. -->
+    <input type="file" id="imageUpload" accept="image/*" class="hidden-input">
+
     <div class="container-fluid">
         <div class="header">
             <div class="header-left">
@@ -82,7 +87,6 @@
         <div class="row">
             <div class="col-md-3 sidebar">
                 <div class="upload-area mb-3" id="uploadArea">
-                    <input type="file" id="imageUpload" accept="image/*" class="hidden-input">
                     <div class="upload-content">
                         <i class="bi bi-cloud-arrow-up-fill"></i>
                         <p>Drag and drop, paste (Ctrl+V) or click to choose file</p>
@@ -131,8 +135,46 @@
         </div>
     </div>
 
+    <!-- ===== Mobile chrome (shown < 768px via mobile.css) ===== -->
+    <div id="mobileTopBar" class="mobile-only">
+        <div class="m-step-text" id="mStepText">Upload an X-ray to begin</div>
+        <div class="m-progress" id="mProgress">
+            <span></span><span></span><span></span><span></span><span></span>
+        </div>
+    </div>
+
+    <div id="mobileToolbar" class="mobile-only">
+        <label class="m-tool" id="mUploadBtn" for="imageUpload" aria-label="Upload X-ray"><i class="bi bi-cloud-arrow-up-fill"></i></label>
+        <button type="button" class="m-tool" id="mFlipBtn" aria-label="Flip horizontal"><i class="bi bi-arrow-left-right"></i></button>
+        <button type="button" class="m-tool" id="mUndoBtn" aria-label="Undo last point"><i class="bi bi-arrow-counterclockwise"></i></button>
+        <button type="button" class="m-primary" id="mPrimaryBtn" disabled>Analyze</button>
+        <button type="button" class="m-tool" id="mMoreBtn" aria-label="More controls"><i class="bi bi-three-dots"></i></button>
+    </div>
+
+    <div id="mobileSheetBackdrop" class="mobile-only"></div>
+    <div id="mobileSheet" class="mobile-only">
+        <div class="m-sheet-handle" id="mSheetHandle"></div>
+        <label for="mRotationSlider" class="form-label">Rotation</label>
+        <input type="range" class="form-range" id="mRotationSlider" min="-180" max="180" value="0">
+        <button type="button" class="btn btn-secondary" id="mResetBtn"><i class="bi bi-arrow-counterclockwise"></i> Reset Markings</button>
+        <button type="button" class="btn btn-info" id="mDownloadBtn" disabled><i class="bi bi-download"></i> Download Analysis</button>
+        <div class="m-guides">
+            <strong>Reference Guides</strong>
+            <a href="#" data-pdf="1544214825.pdf">X-Ray Overlay Tool Quick Reference Guide</a>
+            <a href="#" data-pdf="1544017150.pdf">Performance Setting Guide</a>
+            <a href="#" data-pdf="1543945466-edited.pdf">Tool Kit Quick Reference Guide</a>
+        </div>
+    </div>
+
+    <!-- Magnifier loupe (positioned by mobile.js) -->
+    <div id="loupe" aria-hidden="true"><canvas id="loupeCanvas"></canvas></div>
+
+    <!-- Transient error banner (image-load failures) -->
+    <div id="mToast" class="mobile-only" role="alert"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=20260620b"></script>
+    <script src="mobile.js?v=20260620b"></script>
 </body>
 </html>
