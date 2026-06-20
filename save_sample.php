@@ -17,7 +17,11 @@ header('Content-Type: application/json');
 // Token lives in secret.php (gitignored, NOT in the public repo). Fail closed if
 // it's missing or empty so a fresh deploy can't be spammed with an empty token.
 @include __DIR__ . '/secret.php';
-const STORE = '/home/fmichael1/certas_dataset';
+// Store INSIDE the web root (PHP can always write within its own tree, regardless
+// of open_basedir / which user the web server runs as) but block web access with a
+// deny-all .htaccess below. Avoids the move_uploaded_file 'save failed' that an
+// outside-web-root path hits when open_basedir restricts PHP to public_html.
+const STORE = __DIR__ . '/dataset_store';
 const MAX_BYTES = 15 * 1024 * 1024;
 $COMPONENTS = ['proximal_connector', 'distal_connector', 'right_side_marker',
                'indicator_bar', 'indicator_t_bar'];
@@ -53,12 +57,21 @@ $id = date('Ymd_His') . '_' . bin2hex(random_bytes(4));
 $ext = ($info[2] === IMAGETYPE_PNG) ? 'png' : 'jpg';
 $imgName = $id . '.' . $ext;
 
-@mkdir(STORE . '/images', 0700, true);
-@mkdir(STORE . '/records', 0700, true);
+@mkdir(STORE . '/images', 0775, true);
+@mkdir(STORE . '/records', 0775, true);
+// block web access to the stored images (defense in depth — it's inside the web root)
+$ht = STORE . '/.htaccess';
+if (!file_exists($ht)) {
+    @file_put_contents($ht, "Require all denied\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n");
+}
 
 $imgPath = STORE . '/images/' . $imgName;
-if (!move_uploaded_file($_FILES['image']['tmp_name'], $imgPath)) fail(500, 'save failed');
-@chmod($imgPath, 0600);
+if (!move_uploaded_file($_FILES['image']['tmp_name'], $imgPath)) {
+    $why = !is_dir(STORE . '/images') ? 'no store dir'
+         : (!is_writable(STORE . '/images') ? 'store not writable' : 'move failed');
+    fail(500, 'save failed: ' . $why);
+}
+@chmod($imgPath, 0660);
 
 // append the 5 annotation rows (training-compatible)
 $csv = STORE . '/annotations.csv';
