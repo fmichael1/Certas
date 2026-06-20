@@ -86,6 +86,33 @@
   }
   #mobileTopBar .m-progress span.filled { background: #ffd23f; }
 
+  /* ---- Analysis result banner ---- */
+  #mResult {
+    display: none;
+    position: fixed;
+    top: 44px; left: 0; right: 0;
+    z-index: 35;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: #1e7e34;            /* green = clear result */
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+  }
+  #mResult.show { display: flex; }
+  #mResult.inconclusive { background: #c77700; }   /* amber = repeat X-ray */
+  #mResult .m-result-main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+  #mResult .m-result-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .6px; opacity: .9;
+  }
+  #mResult .m-result-value { font-size: 36px; font-weight: 700; line-height: 1.05; }
+  #mResult .m-result-sub { font-size: 14px; opacity: .95; text-align: right; flex: 0 0 auto; }
+  #mResult .m-result-close {
+    flex: 0 0 auto;
+    background: transparent; border: none; color: #fff;
+    font-size: 26px; line-height: 1; padding: 0 4px;
+  }
+
   /* ---- Bottom toolbar ---- */
   #mobileToolbar {
     display: flex;

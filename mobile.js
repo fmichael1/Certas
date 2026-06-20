@@ -85,6 +85,7 @@
     on('mUndoBtn',   function () { if (typeof removeLastPoint === 'function') removeLastPoint(); });
     on('mMoreBtn',   function () { toggleSheet(); });
     on('mPrimaryBtn', onPrimary);
+    on('mResultClose', hideResult);
   }
 
   function onPrimary() {
@@ -132,25 +133,56 @@
     document.addEventListener('image:loaded', function () {
       imageLoaded = true;
       analyzed = false;
+      hideResult();
       if (MOBILE_MQ.matches) resizeCanvasToContainer();
       refreshUI();
     });
     document.addEventListener('points:changed', function (e) {
       var d = e.detail || state();
       if (d.index < d.total) analyzed = false;
+      hideResult();                 // any marking change invalidates a shown result
       refreshUI(d);
     });
-    document.addEventListener('analysis:complete', function () {
+    document.addEventListener('analysis:complete', function (e) {
       analyzed = true;
       refreshUI();
+      showResult(e.detail);
     });
     document.addEventListener('image:error', function (e) {
       imageLoaded = false;
       analyzed = false;
+      hideResult();
       refreshUI();
       if (elStepText) elStepText.textContent = 'Couldn’t load that photo — tap Upload to try another';
       showToast((e.detail && e.detail.message) || 'Could not load image.');
     });
+  }
+
+  // Prominent result banner — the estimated valve setting is the tool's whole output,
+  // so surface it clearly on mobile (desktop still shows it in #instructions).
+  function showResult(d) {
+    var el = document.getElementById('mResult');
+    if (!el) return;
+    var valueEl = document.getElementById('mResultSetting');
+    var subEl = document.getElementById('mResultSub');
+    var labelEl = el.querySelector('.m-result-label');
+    if (!d || d.inconclusive) {
+      el.classList.add('inconclusive');
+      if (labelEl) labelEl.textContent = 'Inconclusive';
+      if (valueEl) valueEl.textContent = (d && d.nearest) ? (d.nearest[0] + '–' + d.nearest[1]) : '?';
+      if (subEl) subEl.textContent = 'Repeat the X-ray';
+    } else {
+      el.classList.remove('inconclusive');
+      if (labelEl) labelEl.textContent = 'Estimated setting';
+      if (valueEl) valueEl.textContent = d.setting;
+      if (subEl) subEl.textContent = (d.angle != null) ? ('Angle ' + Number(d.angle).toFixed(1) + '°') : '';
+    }
+    el.classList.add('show');
+  }
+
+  function hideResult() {
+    var el = document.getElementById('mResult');
+    if (el) el.classList.remove('show');
   }
 
   // Transient error banner for image-load failures (e.g. HEIC / unreadable photo).

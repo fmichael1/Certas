@@ -430,6 +430,8 @@ function addPoint(x, y, label) {
         fill: 'red',
         stroke: 'white',
         strokeWidth: 2,
+        originX: 'center',   // center the marker on the exact click/tap point
+        originY: 'center',   // (default top-left origin offset the dot by the radius)
         selectable: false,
         evented: false
     });
@@ -572,9 +574,10 @@ function analyzeImage() {
 
     // Display the result
     let resultMessage;
+    let nearest = null;
     if (setting === "Unknown") {
-        const nearestSettings = findNearestSettings(angle);
-        resultMessage = `Image inconclusive - estimated setting is between ${nearestSettings[0]} and ${nearestSettings[1]}. Please repeat the X-ray.`;
+        nearest = findNearestSettings(angle);
+        resultMessage = `Image inconclusive - estimated setting is between ${nearest[0]} and ${nearest[1]}. Please repeat the X-ray.`;
     } else {
         resultMessage = `Analysis complete. Angle: ${angle.toFixed(2)}°, Estimated Setting: ${setting}`;
     }
@@ -588,7 +591,13 @@ function analyzeImage() {
     // Enable the download button after analysis
     document.getElementById('downloadBtn').disabled = false;
 
-    document.dispatchEvent(new CustomEvent('analysis:complete', { detail: { message: resultMessage } }));
+    document.dispatchEvent(new CustomEvent('analysis:complete', { detail: {
+        message: resultMessage,
+        setting: setting,
+        angle: angle,
+        inconclusive: setting === "Unknown",
+        nearest: nearest
+    } }));
 }
 
 function findNearestSettings(angle) {

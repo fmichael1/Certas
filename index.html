@@ -6,10 +6,10 @@
     <title>Certas VPS Valve X-ray Analyzer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260620b">
+    <link rel="stylesheet" href="styles.css?v=20260620c">
     <link rel="stylesheet" href="icons.css">
     <link rel="stylesheet" href="fonts.css">
-    <link rel="stylesheet" href="mobile.css?v=20260620b">
+    <link rel="stylesheet" href="mobile.css?v=20260620c">
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <style>
         .header {
@@ -172,9 +172,19 @@
     <!-- Transient error banner (image-load failures) -->
     <div id="mToast" class="mobile-only" role="alert"></div>
 
+    <!-- Analysis result banner (mobile) -->
+    <div id="mResult" class="mobile-only" role="status">
+        <div class="m-result-main">
+            <span class="m-result-label">Estimated setting</span>
+            <span id="mResultSetting" class="m-result-value">—</span>
+        </div>
+        <div id="mResultSub" class="m-result-sub"></div>
+        <button type="button" id="mResultClose" class="m-result-close" aria-label="Dismiss result">×</button>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-    <script src="app.js?v=20260620b"></script>
-    <script src="mobile.js?v=20260620b"></script>
+    <script src="app.js?v=20260620c"></script>
+    <script src="mobile.js?v=20260620c"></script>
 </body>
 </html>
