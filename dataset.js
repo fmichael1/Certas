@@ -52,17 +52,39 @@
     return out;
   }
 
-  // original-resolution PNG of the current X-ray
+  var MAX_DIM = 1600;   // cap longest side; keeps uploads well under host limits
+  var JPEG_Q = 0.9;
+
+  // Downscaled JPEG of the current X-ray. A full-res PNG re-encode inflates the
+  // file past typical PHP upload_max_filesize (the "upload error"); a capped JPEG
+  // is small and is ample for 256px training + re-annotation. Returns the scale
+  // factor so the stored point coords can be scaled to match the stored image.
   function imageBlob() {
     return new Promise(function (resolve) {
       var el = canvas.backgroundImage && canvas.backgroundImage.getElement();
       if (!el) { resolve(null); return; }
-      var w = el.naturalWidth || el.width, h = el.naturalHeight || el.height;
+      var ow = el.naturalWidth || el.width, oh = el.naturalHeight || el.height;
+      var scale = Math.min(1, MAX_DIM / Math.max(ow, oh));
+      var w = Math.round(ow * scale), h = Math.round(oh * scale);
       var off = document.createElement('canvas');
       off.width = w; off.height = h;
-      off.getContext('2d').drawImage(el, 0, 0, w, h);
-      off.toBlob(function (b) { resolve(b); }, 'image/png');
+      var ctx = off.getContext('2d');
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);   // flatten alpha for JPEG
+      ctx.drawImage(el, 0, 0, w, h);
+      off.toBlob(function (b) {
+        resolve({ blob: b, scale: scale, w: w, h: h, ow: ow, oh: oh });
+      }, 'image/jpeg', JPEG_Q);
     });
+  }
+
+  // scale a {component:[x,y]} map of original-px points to the stored image's px
+  function scalePoints(pts, s) {
+    if (!pts) return null;
+    var out = {};
+    COMPONENTS.forEach(function (c) {
+      if (pts[c]) out[c] = [pts[c][0] * s, pts[c][1] * s];
+    });
+    return out;
   }
 
   function pointsEqual(a, b) {
@@ -77,27 +99,29 @@
     var finalPoints = collectPoints();
     if (!finalPoints) return;
 
-    var blob = await imageBlob();
-    if (!blob) return;
-    var el = canvas.backgroundImage.getElement();
+    var img = await imageBlob();
+    if (!img || !img.blob) return;
 
+    // points are collected in ORIGINAL px; scale them to the stored (downscaled) image
     var corrected = usedAutoDetect && !pointsEqual(autoSnapshot, finalPoints);
     var meta = {
-      width: el.naturalWidth || el.width,
-      height: el.naturalHeight || el.height,
+      width: img.w,
+      height: img.h,
+      orig_width: img.ow,
+      orig_height: img.oh,
       setting: (detail.setting != null) ? detail.setting : null,
       angle: (detail.angle != null) ? Math.round(detail.angle * 100) / 100 : null,
       source: usedAutoDetect ? 'autodetect' : 'manual',
       corrected: corrected,
-      final_points: finalPoints,
-      auto_points: usedAutoDetect ? autoSnapshot : null,
+      final_points: scalePoints(finalPoints, img.scale),
+      auto_points: usedAutoDetect ? scalePoints(autoSnapshot, img.scale) : null,
       app_version: APP_VERSION
     };
 
     var fd = new FormData();
     fd.append('token', SAVE_TOKEN);
     fd.append('meta', JSON.stringify(meta));
-    fd.append('image', blob, 'xray.png');
+    fd.append('image', img.blob, 'xray.jpg');
 
     try {
       var resp = await fetch(ENDPOINT, { method: 'POST', body: fd });

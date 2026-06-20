@@ -48,13 +48,15 @@ foreach ($COMPONENTS as $c) {
     if (!isset($points[$c]) || count($points[$c]) !== 2) fail(400, "missing point: $c");
 }
 
-// generated id — no user input in the path
+// generated id + extension matching the actual image type — no user input in the path
 $id = date('Ymd_His') . '_' . bin2hex(random_bytes(4));
+$ext = ($info[2] === IMAGETYPE_PNG) ? 'png' : 'jpg';
+$imgName = $id . '.' . $ext;
 
 @mkdir(STORE . '/images', 0700, true);
 @mkdir(STORE . '/records', 0700, true);
 
-$imgPath = STORE . '/images/' . $id . '.png';
+$imgPath = STORE . '/images/' . $imgName;
 if (!move_uploaded_file($_FILES['image']['tmp_name'], $imgPath)) fail(500, 'save failed');
 @chmod($imgPath, 0600);
 
@@ -68,7 +70,7 @@ if ($fh) {
         if ($needHeader) fwrite($fh, "image_id,component_name,x,y\n");
         foreach ($COMPONENTS as $c) {
             $p = $points[$c];
-            fwrite($fh, sprintf("%s.png,%s,%.2f,%.2f\n", $id, $c, $p[0], $p[1]));
+            fwrite($fh, sprintf("%s,%s,%.2f,%.2f\n", $imgName, $c, $p[0], $p[1]));
         }
         flock($fh, LOCK_UN);
     }
@@ -79,7 +81,7 @@ if ($fh) {
 $record = [
     'id' => $id,
     'ts' => date('c'),
-    'image' => $id . '.png',
+    'image' => $imgName,
     'width' => $meta['width'] ?? $info[0],
     'height' => $meta['height'] ?? $info[1],
     'setting' => $meta['setting'] ?? null,
