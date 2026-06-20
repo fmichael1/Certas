@@ -85,14 +85,14 @@
 
     try {
       status('Analysing…', 'info');
-      var pre = preprocess();                          // {tensor, lb}
+      var pre = preprocess();                          // {tensor, view}
       var feeds = { image: pre.tensor };
       var out = await sess.run(feeds);
       var hm = out.heatmaps;                            // [1,5,64,64]
       var sincos = out.sincos.data;                    // [sin, cos]
 
-      var pts = decodeHeatmaps(hm.data);               // 5 normalized letterbox pts
-      placeDetectedPoints(pts, pre.lb);
+      var pts = decodeHeatmaps(hm.data);               // 5 normalized (viewport letterbox)
+      placeDetectedPoints(pts, pre.view);
 
       var theta = (Math.atan2(sincos[0], sincos[1]) * 180 / Math.PI + 360) % 360;
       var modelSetting = (typeof determineValveSetting === 'function')
@@ -107,20 +107,36 @@
     }
   }
 
-  // ---- preprocessing: letterbox to 256 + ImageNet normalize, CHW float ----
+  // ---- preprocessing: render the VISIBLE viewport (the zoomed valve view the user
+  // sees) -> letterbox to 256 -> ImageNet normalize, CHW float. Processing the
+  // zoomed view means the valve fills more of the model's input. ----
   function preprocess() {
-    var imgEl = canvas.backgroundImage.getElement();
-    var ow = imgEl.naturalWidth || imgEl.width;
-    var oh = imgEl.naturalHeight || imgEl.height;
-    var scale = IMG_SIZE / Math.max(ow, oh);
-    var nw = Math.round(ow * scale), nh = Math.round(oh * scale);
-    var left = Math.floor((IMG_SIZE - nw) / 2), top = Math.floor((IMG_SIZE - nh) / 2);
+    var W = Math.round(canvas.getWidth());
+    var H = Math.round(canvas.getHeight());
+    var vpt = canvas.viewportTransform;
+    var bg = canvas.backgroundImage;
+    var imgEl = bg.getElement();
 
+    // 1) reproduce exactly what's visible (image only, no markers), at size W x H
+    var view = document.createElement('canvas');
+    view.width = W; view.height = H;
+    var vctx = view.getContext('2d');
+    vctx.fillStyle = '#000'; vctx.fillRect(0, 0, W, H);
+    vctx.setTransform(vpt[0], vpt[1], vpt[2], vpt[3], vpt[4], vpt[5]);
+    vctx.drawImage(imgEl, bg.left, bg.top,
+                   (imgEl.naturalWidth || imgEl.width) * bg.scaleX,
+                   (imgEl.naturalHeight || imgEl.height) * bg.scaleY);
+    vctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // 2) letterbox the visible view into 256 x 256
+    var scale = IMG_SIZE / Math.max(W, H);
+    var nw = Math.round(W * scale), nh = Math.round(H * scale);
+    var left = Math.floor((IMG_SIZE - nw) / 2), top = Math.floor((IMG_SIZE - nh) / 2);
     var off = document.createElement('canvas');
     off.width = IMG_SIZE; off.height = IMG_SIZE;
     var ctx = off.getContext('2d');
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, IMG_SIZE, IMG_SIZE);
-    ctx.drawImage(imgEl, left, top, nw, nh);
+    ctx.drawImage(view, 0, 0, W, H, left, top, nw, nh);
     var data = ctx.getImageData(0, 0, IMG_SIZE, IMG_SIZE).data;
 
     var chw = new Float32Array(3 * IMG_SIZE * IMG_SIZE);
@@ -133,7 +149,7 @@
     }
     return {
       tensor: new ort.Tensor('float32', chw, [1, 3, IMG_SIZE, IMG_SIZE]),
-      lb: { scale: scale, left: left, top: top }
+      view: { W: W, H: H, scale: scale, left: left, top: top, vpt: vpt.slice() }
     };
   }
 
@@ -164,17 +180,16 @@
   }
 
   // ---- place the detected points into the existing marking flow ----
-  function placeDetectedPoints(pts, lb) {
-    var bg = canvas.backgroundImage;
-    var bgScale = bg.scaleX, bgLeft = bg.left, bgTop = bg.top;
+  // Map model output (256-normalized, in the rendered viewport) back to scene coords:
+  // 256-normalized -> letterbox px -> viewport (screen) px -> scene via inverse viewport.
+  function placeDetectedPoints(pts, view) {
     if (typeof resetMarkings === 'function') resetMarkings();
+    var inv = fabric.util.invertTransform(view.vpt);
     pts.forEach(function (p) {
-      // letterbox-normalized -> original image px -> fabric scene coords
-      var origX = (p[0] * IMG_SIZE - lb.left) / lb.scale;
-      var origY = (p[1] * IMG_SIZE - lb.top) / lb.scale;
-      var sceneX = bgLeft + origX * bgScale;
-      var sceneY = bgTop + origY * bgScale;
-      if (typeof placePoint === 'function') placePoint(sceneX, sceneY);
+      var vx = (p[0] * IMG_SIZE - view.left) / view.scale;
+      var vy = (p[1] * IMG_SIZE - view.top) / view.scale;
+      var scenePt = fabric.util.transformPoint(new fabric.Point(vx, vy), inv);
+      if (typeof placePoint === 'function') placePoint(scenePt.x, scenePt.y);
     });
     canvas.requestRenderAll && canvas.requestRenderAll();
   }

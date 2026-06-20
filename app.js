@@ -260,6 +260,7 @@ function handleCanvasMouseWheel(event) {
     if (zoom > 20) zoom = 20;
     if (zoom < 0.01) zoom = 0.01;
     canvas.zoomToPoint({ x: event.e.offsetX, y: event.e.offsetY }, zoom);
+    rescaleMarkers();   // keep markers constant on-screen size
     event.e.preventDefault();
     event.e.stopPropagation();
 }
@@ -463,22 +464,69 @@ function addPoint(x, y, label) {
     canvas.add(circle, text);
     points.push({ circle, text });
 
+    applyMarkerDisplay(circle);  // size to the current zoom (constant on-screen size)
     canvas.renderAll();
 }
 
-// Keep a marker's text label aligned, and invalidate analysis, while it's dragged.
+// Markers are drawn at a constant ON-SCREEN size regardless of canvas zoom — the
+// user zooms into the valve and the dots/labels should stay small (auto-detect
+// runs on that same zoomed view). We counter-scale radius/stroke/font by the
+// viewport zoom. A dragged marker also goes hollow + hides its label so it
+// doesn't obscure the anatomy underneath.
+const MARKER_BASE = { radius: 6, stroke: 2, dragRadius: 8, dragStroke: 1.5, font: 14, offset: 10 };
+
+function markerZoom() {
+    return (canvas && canvas.getZoom) ? (canvas.getZoom() || 1) : 1;
+}
+
+function applyMarkerDisplay(circle) {
+    if (!circle || !circle.isMarker) return;
+    const z = markerZoom();
+    const drag = !!circle.isDragging;
+    circle.set({
+        radius: (drag ? MARKER_BASE.dragRadius : MARKER_BASE.radius) / z,
+        strokeWidth: (drag ? MARKER_BASE.dragStroke : MARKER_BASE.stroke) / z,
+        fill: drag ? 'transparent' : 'red',
+        stroke: drag ? 'rgba(255,0,0,0.85)' : 'white'
+    });
+    if (circle.markerLabel) {
+        circle.markerLabel.set({
+            fontSize: MARKER_BASE.font / z,
+            left: circle.left + MARKER_BASE.offset / z,
+            top: circle.top + MARKER_BASE.offset / z,
+            opacity: drag ? 0 : 1
+        });
+        circle.markerLabel.setCoords();
+    }
+    circle.setCoords();
+}
+
+// Re-size all markers to keep constant screen size after a zoom change.
+function rescaleMarkers() {
+    if (typeof points === 'undefined' || !points.length) return;
+    points.forEach(function (p) { applyMarkerDisplay(p.circle); });
+    canvas.requestRenderAll();
+}
+
+function setMarkerDragging(circle, dragging) {
+    if (!circle || !circle.isMarker) return;
+    circle.isDragging = dragging;
+    applyMarkerDisplay(circle);
+}
+
+// Keep a marker's label aligned + hollow it while dragged (unobstructed view).
 function handleMarkerMoving(event) {
     const obj = event.target;
     if (!obj || !obj.isMarker) return;
-    if (obj.markerLabel) {
-        obj.markerLabel.set({ left: obj.left + 10, top: obj.top + 10 });
-        obj.markerLabel.setCoords();
-    }
+    obj.isDragging = true;
+    applyMarkerDisplay(obj);
 }
 
 function handleMarkerModified(event) {
     const obj = event.target;
     if (!obj || !obj.isMarker) return;
+    obj.isDragging = false;
+    applyMarkerDisplay(obj);          // restore the solid dot + label
     // A correction invalidates the drawn analysis until the user re-runs Analyze.
     canvas.getObjects().forEach(function (o) {
         if (o instanceof fabric.Line || o.isArrowhead) canvas.remove(o);

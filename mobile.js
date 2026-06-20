@@ -270,6 +270,7 @@
         e.preventDefault();
         touchMode = 'dragmarker';
         dragTarget = marker;
+        if (typeof setMarkerDragging === 'function') setMarkerDragging(marker, true);
         showLoupe();
         updateLoupe(t0);
       } else if (isPlacing()) {
@@ -310,7 +311,10 @@
       var M = similarityFromPairs(twoFinger.p0, twoFinger.p1, now.p0, now.p1);
       var next = fabric.util.multiplyTransformMatrices(M, canvas.viewportTransform);
       var sc = Math.hypot(next[0], next[1]);
-      if (sc >= 0.2 && sc <= 20) canvas.setViewportTransform(next);
+      if (sc >= 0.2 && sc <= 20) {
+        canvas.setViewportTransform(next);
+        if (typeof rescaleMarkers === 'function') rescaleMarkers();  // constant on-screen marker size
+      }
       twoFinger = now;
 
     } else if (touchMode === 'place' && e.touches.length === 1) {
@@ -369,6 +373,7 @@
 
   function onTouchCancel() {
     hideLoupe();
+    if (dragTarget && typeof setMarkerDragging === 'function') setMarkerDragging(dragTarget, false);
     touchMode = null; twoFinger = null; panLast = null; dragTarget = null;
   }
 

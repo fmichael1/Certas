@@ -16,7 +16,7 @@
   // token is never truly secret, but keeping it out of the public repo avoids
   // GitHub-scanner abuse; the server fails closed if it isn't configured.
   var SAVE_TOKEN = window.CERTAS_SAVE_TOKEN || '';
-  var APP_VERSION = '20260620e';
+  var APP_VERSION = '20260620g';
   // training component names, in the app's point order (proximal, distal, RHS, bar, t_bar)
   var COMPONENTS = ['proximal_connector', 'distal_connector', 'right_side_marker',
                     'indicator_bar', 'indicator_t_bar'];
