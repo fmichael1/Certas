@@ -23,9 +23,10 @@
   var imageLoaded = false;
 
   // Touch state
-  var touchMode  = null;   // 'place' | 'pan' | 'gesture'
+  var touchMode  = null;   // 'place' | 'pan' | 'gesture' | 'dragmarker'
   var twoFinger  = null;   // previous two-finger positions (canvas-relative)
   var panLast    = null;
+  var dragTarget = null;   // marker (fabric circle) being dragged to correct it
 
   // Cached elements
   var elStepText, elProgress, elPrimary, elDownload, elSheet, elBackdrop,
@@ -262,16 +263,40 @@
       return;
     }
     if (e.touches.length === 1) {
-      if (isPlacing()) {
+      var t0 = e.touches[0];
+      var marker = markerAt(t0.clientX, t0.clientY);
+      if (marker) {
+        // Drag an existing marker to correct it (loupe shows the precise spot).
+        e.preventDefault();
+        touchMode = 'dragmarker';
+        dragTarget = marker;
+        showLoupe();
+        updateLoupe(t0);
+      } else if (isPlacing()) {
         e.preventDefault();
         touchMode = 'place';
         showLoupe();
-        updateLoupe(e.touches[0]);
+        updateLoupe(t0);
       } else if (imageLoaded) {
         touchMode = 'pan';
-        panLast = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        panLast = { x: t0.clientX, y: t0.clientY };
       }
     }
+  }
+
+  // The marker (fabric circle) under a viewport point, or null. Tolerance scales
+  // with zoom so it stays tappable. Searches app.js's global `points`.
+  function markerAt(clientX, clientY) {
+    if (typeof points === 'undefined' || !points.length) return null;
+    var sc = clientToScene(clientX, clientY);
+    if (!sc) return null;
+    var tol = 14 / (canvas.getZoom() || 1);   // ~14 screen px in scene units
+    var best = null, bestD = tol;
+    points.forEach(function (p) {
+      var d = Math.hypot(p.circle.left - sc.x, p.circle.top - sc.y);
+      if (d <= bestD) { bestD = d; best = p.circle; }
+    });
+    return best;
   }
 
   function onTouchMove(e) {
@@ -292,6 +317,20 @@
       e.preventDefault();
       updateLoupe(e.touches[0]);
 
+    } else if (touchMode === 'dragmarker' && e.touches.length === 1) {
+      e.preventDefault();
+      var sc = clientToScene(e.touches[0].clientX, e.touches[0].clientY);
+      if (sc && dragTarget) {
+        dragTarget.set({ left: sc.x, top: sc.y });
+        if (dragTarget.markerLabel) {
+          dragTarget.markerLabel.set({ left: sc.x + 10, top: sc.y + 10 });
+          dragTarget.markerLabel.setCoords();
+        }
+        dragTarget.setCoords();
+        canvas.requestRenderAll();
+      }
+      updateLoupe(e.touches[0]);
+
     } else if (touchMode === 'pan' && e.touches.length === 1) {
       e.preventDefault();
       var t = e.touches[0];
@@ -306,6 +345,13 @@
       hideLoupe();
       var scene = clientToScene(t.clientX, t.clientY);
       if (scene && typeof placePoint === 'function') placePoint(scene.x, scene.y);
+      touchMode = null;
+
+    } else if (touchMode === 'dragmarker') {
+      hideLoupe();
+      // mirror desktop object:modified — invalidate analysis, refresh progress
+      if (typeof handleMarkerModified === 'function') handleMarkerModified({ target: dragTarget });
+      dragTarget = null;
       touchMode = null;
 
     } else if (touchMode === 'gesture') {
@@ -323,7 +369,7 @@
 
   function onTouchCancel() {
     hideLoupe();
-    touchMode = null; pinchStart = null; panLast = null;
+    touchMode = null; twoFinger = null; panLast = null; dragTarget = null;
   }
 
   /* ---------- geometry helpers ---------- */

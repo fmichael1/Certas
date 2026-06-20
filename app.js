@@ -191,6 +191,8 @@ function initializeCanvas() {
     canvas.on('mouse:move', handleCanvasMouseMove);
     canvas.on('mouse:up', handleCanvasMouseUp);
     canvas.on('mouse:wheel', handleCanvasMouseWheel);
+    canvas.on('object:moving', handleMarkerMoving);
+    canvas.on('object:modified', handleMarkerModified);
 }
 
 function initializeControls() {
@@ -393,6 +395,8 @@ function fitImageToCanvas(img) {
 }
 
 function handleCanvasClick(event) {
+    // Clicking an existing marker drags it (correction) — don't place a new point.
+    if (event.target && event.target.isMarker) return;
     const pointer = canvas.getPointer(event.e);
     placePoint(pointer.x, pointer.y);
 }
@@ -426,14 +430,22 @@ function addPoint(x, y, label) {
     const circle = new fabric.Circle({
         left: x,
         top: y,
-        radius: 5,
+        radius: 6,
         fill: 'red',
         stroke: 'white',
         strokeWidth: 2,
         originX: 'center',   // center the marker on the exact click/tap point
         originY: 'center',   // (default top-left origin offset the dot by the radius)
-        selectable: false,
-        evented: false
+        // Draggable for correction: move-only, no rotate/scale handles or borders.
+        selectable: true,
+        evented: true,
+        hasControls: false,
+        hasBorders: false,
+        lockRotation: true,
+        lockScalingX: true,
+        lockScalingY: true,
+        hoverCursor: 'move',
+        isMarker: true        // tag so click-to-place can skip existing markers
     });
 
     const text = new fabric.Text(label, {
@@ -447,10 +459,32 @@ function addPoint(x, y, label) {
         evented: false
     });
 
+    circle.markerLabel = text;   // keep the label glued to its marker while dragging
     canvas.add(circle, text);
     points.push({ circle, text });
 
     canvas.renderAll();
+}
+
+// Keep a marker's text label aligned, and invalidate analysis, while it's dragged.
+function handleMarkerMoving(event) {
+    const obj = event.target;
+    if (!obj || !obj.isMarker) return;
+    if (obj.markerLabel) {
+        obj.markerLabel.set({ left: obj.left + 10, top: obj.top + 10 });
+        obj.markerLabel.setCoords();
+    }
+}
+
+function handleMarkerModified(event) {
+    const obj = event.target;
+    if (!obj || !obj.isMarker) return;
+    // A correction invalidates the drawn analysis until the user re-runs Analyze.
+    canvas.getObjects().forEach(function (o) {
+        if (o instanceof fabric.Line || o.isArrowhead) canvas.remove(o);
+    });
+    notifyPointsChanged();
+    canvas.requestRenderAll();
 }
 
 function rotateCanvas(angle) {
