@@ -23,8 +23,8 @@
   var imageLoaded = false;
 
   // Touch state
-  var touchMode  = null;   // 'place' | 'pan' | 'pinch'
-  var pinchStart = null;
+  var touchMode  = null;   // 'place' | 'pan' | 'gesture'
+  var twoFinger  = null;   // previous two-finger positions (canvas-relative)
   var panLast    = null;
 
   // Cached elements
@@ -256,8 +256,8 @@
 
     if (e.touches.length === 2) {
       e.preventDefault();
-      touchMode = 'pinch';
-      pinchStart = gestureInfo(e.touches[0], e.touches[1]);
+      touchMode = 'gesture';
+      twoFinger = twoTouchPoints(e);
       hideLoupe();
       return;
     }
@@ -277,15 +277,16 @@
   function onTouchMove(e) {
     if (!canvas) return;
 
-    if (touchMode === 'pinch' && e.touches.length === 2) {
+    if (touchMode === 'gesture' && e.touches.length === 2) {
       e.preventDefault();
-      var now = gestureInfo(e.touches[0], e.touches[1]);
-      var zoom = canvas.getZoom() * (now.dist / pinchStart.dist);
-      zoom = Math.min(Math.max(zoom, 0.2), 20);
-      var rect = canvas.upperCanvasEl.getBoundingClientRect();
-      canvas.zoomToPoint(new fabric.Point(now.mid.x - rect.left, now.mid.y - rect.top), zoom);
-      canvas.relativePan(new fabric.Point(now.mid.x - pinchStart.mid.x, now.mid.y - pinchStart.mid.y));
-      pinchStart = now;
+      var now = twoTouchPoints(e);
+      // One similarity transform (pan + pinch-zoom + twist-rotate) mapping the
+      // previous finger positions onto the new ones, applied to the viewport.
+      var M = similarityFromPairs(twoFinger.p0, twoFinger.p1, now.p0, now.p1);
+      var next = fabric.util.multiplyTransformMatrices(M, canvas.viewportTransform);
+      var sc = Math.hypot(next[0], next[1]);
+      if (sc >= 0.2 && sc <= 20) canvas.setViewportTransform(next);
+      twoFinger = now;
 
     } else if (touchMode === 'place' && e.touches.length === 1) {
       e.preventDefault();
@@ -307,12 +308,12 @@
       if (scene && typeof placePoint === 'function') placePoint(scene.x, scene.y);
       touchMode = null;
 
-    } else if (touchMode === 'pinch') {
+    } else if (touchMode === 'gesture') {
       if (e.touches.length === 1) {
         touchMode = imageLoaded ? 'pan' : null;
         panLast = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       } else if (e.touches.length === 0) {
-        touchMode = null; pinchStart = null;
+        touchMode = null; twoFinger = null;
       }
 
     } else if (touchMode === 'pan' && e.touches.length === 0) {
@@ -326,21 +327,41 @@
   }
 
   /* ---------- geometry helpers ---------- */
-  function gestureInfo(a, b) {
-    var dx = b.clientX - a.clientX, dy = b.clientY - a.clientY;
+  // Two current touch points in canvas-element coordinates.
+  function twoTouchPoints(e) {
+    var rect = canvas.upperCanvasEl.getBoundingClientRect();
     return {
-      dist: Math.hypot(dx, dy) || 1,
-      mid: { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }
+      p0: { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top },
+      p1: { x: e.touches[1].clientX - rect.left, y: e.touches[1].clientY - rect.top }
     };
   }
 
-  // Convert a viewport point to Fabric scene coordinates (zoom + pan only).
+  // Similarity transform (translate + rotate + uniform scale) mapping finger pair
+  // a0,a1 onto b0,b1 — the pan/zoom/rotate implied by a two-finger move.
+  function similarityFromPairs(a0, a1, b0, b1) {
+    var vax = a1.x - a0.x, vay = a1.y - a0.y;
+    var vbx = b1.x - b0.x, vby = b1.y - b0.y;
+    var da = Math.hypot(vax, vay) || 1;
+    var db = Math.hypot(vbx, vby) || 1;
+    var s = db / da;
+    var ang = Math.atan2(vby, vbx) - Math.atan2(vay, vax);
+    var cos = Math.cos(ang) * s, sin = Math.sin(ang) * s;
+    var RS   = [cos, sin, -sin, cos, 0, 0];        // rotate + uniform scale
+    var Tneg = [1, 0, 0, 1, -a0.x, -a0.y];         // a0 -> origin
+    var Tpos = [1, 0, 0, 1, b0.x, b0.y];           // origin -> b0
+    var m = fabric.util.multiplyTransformMatrices(RS, Tneg);
+    return fabric.util.multiplyTransformMatrices(Tpos, m);
+  }
+
+  // Convert a viewport point to Fabric scene coordinates. Full matrix inverse, so
+  // it stays correct even after the two-finger gesture introduces rotation.
   function clientToScene(clientX, clientY) {
     if (!canvas) return null;
     var rect = canvas.upperCanvasEl.getBoundingClientRect();
-    var px = clientX - rect.left, py = clientY - rect.top;
-    var vpt = canvas.viewportTransform;
-    return { x: (px - vpt[4]) / vpt[0], y: (py - vpt[5]) / vpt[3] };
+    var p = { x: clientX - rect.left, y: clientY - rect.top };
+    var inv = fabric.util.invertTransform(canvas.viewportTransform);
+    var sc = fabric.util.transformPoint(p, inv);
+    return { x: sc.x, y: sc.y };
   }
 
   /* ---------- loupe rendering ---------- */

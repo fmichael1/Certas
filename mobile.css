@@ -113,6 +113,21 @@
     font-size: 26px; line-height: 1; padding: 0 4px;
   }
 
+  /* ---- Marking guide inset (mobile) ---- */
+  #guideInset {
+    display: none;
+    position: fixed;
+    top: 52px; left: 8px;
+    width: 62px; height: 178px;
+    z-index: 25;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 8px;
+    padding: 5px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+  }
+  #guideInset.show { display: block; }
+  #guideInset svg { width: 100%; height: 100%; }
+
   /* ---- Bottom toolbar ---- */
   #mobileToolbar {
     display: flex;
@@ -183,6 +198,13 @@
     background: #cfd6dd;
     margin: 10px auto 16px;
   }
+  #mobileSheet .m-sheet-hint {
+    font-size: 13px;
+    color: #6c757d;
+    text-align: center;
+    margin: 0 0 16px;
+    line-height: 1.4;
+  }
   #mobileSheet .form-label { font-weight: 600; margin-bottom: 6px; }
   #mobileSheet .form-range { margin-bottom: 18px; }
   #mobileSheet .btn { width: 100%; margin-bottom: 12px; }
@@ -244,6 +266,11 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, .3);
 }
 #mToast.show { display: block; }
+
+/* ---- Marking guide diagram (desktop sidebar panel) ---- */
+.guide-panel { display: none; height: 210px; margin: 10px 0 16px; }
+.guide-panel.show { display: block; }
+.guide-panel svg { width: 100%; height: 100%; }
 
 /* Never show mobile chrome or the loupe on desktop. */
 @media (min-width: 768px) {

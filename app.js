@@ -734,24 +734,52 @@ function displayDebugInfo() {
 }
 
 function downloadAnalysis() {
-    // Create a new canvas that includes the entire app view
-    const appView = document.querySelector('.container-fluid');
-    html2canvas(appView).then(canvas => {
-        // Add the result message to the canvas
-        const ctx = canvas.getContext('2d');
-        ctx.font = '14px Arial';
-        ctx.fillStyle = 'black';
-        ctx.fillText(document.getElementById('instructions').textContent, 10, canvas.height - 20);
+    if (!canvas) return;
 
-        // Convert the canvas to a data URL
-        const dataURL = canvas.toDataURL('image/png');
+    // Render the Fabric scene (X-ray + markers + analysis lines) straight to an
+    // image, then append the result text below it. The old approach screenshotted
+    // the whole page with html2canvas (broken by the mobile fixed overlays) and
+    // saved via <a download> (unsupported on iOS Safari).
+    const base = canvas.toCanvasElement(2);   // current scene at 2x as a <canvas>
+    const out = document.createElement('canvas');
+    const pad = 64;
+    out.width = base.width;
+    out.height = base.height + pad;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(base, 0, 0);
+    ctx.fillStyle = '#000000';
+    ctx.font = '24px Arial';
+    const instr = document.getElementById('instructions');
+    ctx.fillText(instr ? instr.textContent : '', 16, base.height + 40, out.width - 32);
 
-        // Create a temporary link element and trigger the download
-        const downloadLink = document.createElement('a');
-        downloadLink.href = dataURL;
-        downloadLink.download = 'certas_vps_valve_analysis.png';
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-    });
+    out.toBlob(function (blob) {
+        saveOrShareImage(blob, 'certas_vps_valve_analysis.png');
+    }, 'image/png');
+}
+
+// Save an image cross-platform: use the native share sheet where available
+// (iOS/Android -> save to Photos/Files), otherwise fall back to a download link.
+function saveOrShareImage(blob, filename) {
+    if (!blob) return;
+    const file = new File([blob], filename, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'Certas valve analysis' })
+            .catch(function () { triggerDownload(blob, filename); });
+        return;
+    }
+    triggerDownload(blob, filename);
+}
+
+function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
 }
