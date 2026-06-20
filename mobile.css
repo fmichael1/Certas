@@ -8,6 +8,20 @@
 /* Mobile-only chrome is hidden by default. */
 .mobile-only { display: none; }
 
+/* ---- Auto-detect (experimental AI) status banner ---- */
+.autodetect-status {
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border: 1px solid transparent;
+}
+.autodetect-status.info { background: #eef4fb; color: #2c5777; border-color: #cfe0f0; }
+.autodetect-status.ok   { background: #e8f6ec; color: #1e7e34; border-color: #bfe6c9; }
+.autodetect-status.warn { background: #fff4e5; color: #8a5800; border-color: #ffd9a8; }
+#autoDetectBtn small, #mAutoDetectBtn small { opacity: .8; font-weight: 400; }
+
 @media (max-width: 767.98px) {
 
   /* ---- Full-screen app shell ---- */
